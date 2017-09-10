@@ -100,6 +100,21 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
             GPIO_write(Board_LED2, Board_LED_ON);
             System_abort("Could not extract data registers from the MPU9150");
         }
+
+        MPU9150_Data tmpData;
+
+        MPU9150_getAccelFloat(mpu, &tmpData);
+        imu_state.x = tmpData.xFloat;
+        imu_state.y = tmpData.yFloat;
+        // MPU reports downward acceleration as positive
+        imu_state.z = -tmpData.zFloat;
+
+        MPU9150_getGyroFloat(mpu, &tmpData);
+        imu_state.pitch = tmpData.xFloat;
+        imu_state.roll = tmpData.yFloat;
+        imu_state.yaw = tmpData.zFloat;
+
+        Semaphore_post(dataReady);
     }
 }
 
@@ -112,23 +127,11 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
 Void transmitFxn(UArg arg0, UArg arg1)
 {
     while (true) {
-        MPU9150_Data tmpData;
-
         Log_info0("Waiting for USB CDC...");
         /* Block while the device is NOT connected to the USB */
         USBCDCD_waitForConnect(BIOS_WAIT_FOREVER);
         Log_info0("Connected to USB CDC!");
         GPIO_write(Board_LED0, Board_LED_ON);
-
-        MPU9150_getAccelFloat(mpu, &tmpData);
-        imu_state.x = tmpData.xFloat;
-        imu_state.y = tmpData.yFloat;
-        imu_state.z = tmpData.zFloat;
-
-        MPU9150_getGyroFloat(mpu, &tmpData);
-        imu_state.pitch = tmpData.xFloat;
-        imu_state.roll = tmpData.yFloat;
-        imu_state.yaw = tmpData.zFloat;
 
         const unsigned char buffer[STR_BUFFER_SIZE];
         int len = snprintf((char *) buffer, STR_BUFFER_SIZE, "(%.5f %.5f %.5f %.5f %.5f %.5f)\r\n\0",
