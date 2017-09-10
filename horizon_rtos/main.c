@@ -61,9 +61,11 @@
 #include "Board.h"
 
 #include "MPU9150.h"
+#include "motion.h"
 #include "USBCDCD.h"
 
 static MPU9150_Handle mpu;
+IMU_State imu_state;
 
 /*
  *  ======== gpioMPU9150DataReady ========
@@ -119,9 +121,19 @@ Void transmitFxn(UArg arg0, UArg arg1)
         GPIO_write(Board_LED0, Board_LED_ON);
 
         MPU9150_getAccelFloat(mpu, &tmpData);
+        imu_state.x = tmpData.xFloat;
+        imu_state.y = tmpData.yFloat;
+        imu_state.z = tmpData.zFloat;
+
+        MPU9150_getGyroFloat(mpu, &tmpData);
+        imu_state.pitch = tmpData.xFloat;
+        imu_state.roll = tmpData.yFloat;
+        imu_state.yaw = tmpData.zFloat;
 
         const unsigned char buffer[STR_BUFFER_SIZE];
-        int len = snprintf((char *) buffer, STR_BUFFER_SIZE, "(%.5f %.5f %.5f %.5f %.5f %.5f)\r\n\0", tmpData.xFloat, tmpData.yFloat, tmpData.zFloat, 0.f, 0.f, 0.f);
+        int len = snprintf((char *) buffer, STR_BUFFER_SIZE, "(%.5f %.5f %.5f %.5f %.5f %.5f)\r\n\0",
+                                                               imu_state.x, imu_state.y, imu_state.z,
+                                                               imu_state.roll, imu_state.pitch, imu_state.yaw);
         if (len >= STR_BUFFER_SIZE) {
             Log_error1("sprintf wrote %d bytes!", (IArg) len);
         }
