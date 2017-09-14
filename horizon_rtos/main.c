@@ -62,10 +62,20 @@
 
 #include "MPU9150.h"
 #include "motion.h"
+#include "filter/HeaveFilter.h"
 #include "USBCDCD.h"
 
 static MPU9150_Handle mpu;
 IMU_State imu_state;
+IMU_State filt_imu_state;
+
+HeaveFilter g_sAccelZFilter;
+HeaveFilter g_sAccelXFilter;
+HeaveFilter g_sAccelYFilter;
+
+HeaveFilter g_sGyroXFilter;
+HeaveFilter g_sGyroYFilter;
+HeaveFilter g_sGyroZFilter;
 
 /*
  *  ======== gpioMPU9150DataReady ========
@@ -93,6 +103,14 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
         System_abort("MPU9150 could not be initialized");
     }
 
+    HeaveFilter_init(&g_sAccelZFilter);
+    HeaveFilter_init(&g_sAccelXFilter);
+    HeaveFilter_init(&g_sAccelYFilter);
+
+    HeaveFilter_init(&g_sGyroXFilter);
+    HeaveFilter_init(&g_sGyroYFilter);
+    HeaveFilter_init(&g_sGyroZFilter);
+
     while (1) {
         Semaphore_pend(sampleData, BIOS_WAIT_FOREVER);
 
@@ -114,7 +132,25 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
         imu_state.roll = tmpData.yFloat;
         imu_state.yaw = tmpData.zFloat;
 
-        Semaphore_post(dataReady);
+        HeaveFilter_put(&g_sAccelXFilter, imu_state.x);
+        HeaveFilter_put(&g_sAccelYFilter, imu_state.y);
+        HeaveFilter_put(&g_sAccelZFilter, imu_state.z);
+
+        HeaveFilter_put(&g_sGyroXFilter, imu_state.roll);
+        HeaveFilter_put(&g_sGyroYFilter, imu_state.pitch);
+        HeaveFilter_put(&g_sGyroZFilter, imu_state.yaw);
+
+        // TODO: maybe decimate?
+
+        filt_imu_state.x = HeaveFilter_get(&g_sAccelXFilter);
+        filt_imu_state.y = HeaveFilter_get(&g_sAccelYFilter);
+        filt_imu_state.z = HeaveFilter_get(&g_sAccelZFilter);
+
+        filt_imu_state.roll = HeaveFilter_get(&g_sGyroXFilter);
+        filt_imu_state.pitch = HeaveFilter_get(&g_sGyroYFilter);
+        filt_imu_state.yaw = HeaveFilter_get(&g_sGyroZFilter);
+
+        Semaphore_post(dataProcessed);
     }
 }
 
@@ -131,12 +167,16 @@ Void transmitFxn(UArg arg0, UArg arg1)
         /* Block while the device is NOT connected to the USB */
         USBCDCD_waitForConnect(BIOS_WAIT_FOREVER);
         Log_info0("Connected to USB CDC!");
-        GPIO_write(Board_LED0, Board_LED_ON);
+
+        Semaphore_pend(dataProcessed, BIOS_WAIT_FOREVER);
+
+//        GPIO_write(Board_LED0, Board_LED_ON);
+        GPIO_toggle(Board_LED0);
 
         const unsigned char buffer[STR_BUFFER_SIZE];
         int len = snprintf((char *) buffer, STR_BUFFER_SIZE, "(%.5f %.5f %.5f %.5f %.5f %.5f)\r\n\0",
-                                                               imu_state.x, imu_state.y, imu_state.z,
-                                                               imu_state.roll, imu_state.pitch, imu_state.yaw);
+                                                               filt_imu_state.x, filt_imu_state.y, filt_imu_state.z,
+                                                               filt_imu_state.roll, filt_imu_state.pitch, filt_imu_state.yaw);
         if (len >= STR_BUFFER_SIZE) {
             Log_error1("sprintf wrote %d bytes!", (IArg) len);
         }
@@ -144,7 +184,7 @@ Void transmitFxn(UArg arg0, UArg arg1)
         USBCDCD_sendData(buffer, len, BIOS_WAIT_FOREVER);
 
         /* Send data periodically */
-        Task_sleep(100);
+//        Task_sleep(10);
     }
 }
 

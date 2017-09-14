@@ -132,7 +132,7 @@ MPU9150_Handle MPU9150_init(unsigned int mpu9105Index,
        	 * Set sample rate to 50 hertz.  1000 hz / (1 + 19)
        	 */
        	writeBuffer[0] = MPU9150_O_SMPLRT_DIV;
-       	writeBuffer[1] = 19;
+       	writeBuffer[1] = 12;
        	i2cTransaction.writeCount = 2;
     	i2cTransaction.readCount = 0;
        	if (!I2C_transfer(handle->i2c, &i2cTransaction)) {
@@ -196,9 +196,9 @@ MPU9150_Handle MPU9150_init(unsigned int mpu9105Index,
          * settings and sensor range settings.
          */
        	writeBuffer[0] = MPU9150_O_CONFIG;
-    	writeBuffer[1] = MPU9150_CONFIG_DLPF_CFG_94_98;
+    	writeBuffer[1] = MPU9150_CONFIG_DLPF_CFG_184_188;
 		writeBuffer[2] = MPU9150_GYRO_CONFIG_FS_SEL_250;
-		writeBuffer[3] = (MPU9150_ACCEL_CONFIG_ACCEL_HPF_5HZ |
+		writeBuffer[3] = (MPU9150_ACCEL_CONFIG_ACCEL_HPF_RESET |
                           MPU9150_ACCEL_CONFIG_AFS_SEL_2G);
        	i2cTransaction.writeCount = 4;
     	i2cTransaction.readCount = 0;
