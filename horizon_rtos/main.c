@@ -150,6 +150,7 @@ Void dataCollectionTaskFxn(UArg arg0, UArg arg1)
         filt_imu_state.pitch = HeaveFilter_get(&g_sGyroYFilter);
         filt_imu_state.yaw = HeaveFilter_get(&g_sGyroZFilter);
 
+//        Log_info0("Processing done");
         Semaphore_post(dataProcessed);
     }
 }
@@ -170,13 +171,16 @@ Void transmitFxn(UArg arg0, UArg arg1)
 
         Semaphore_pend(dataProcessed, BIOS_WAIT_FOREVER);
 
-//        GPIO_write(Board_LED0, Board_LED_ON);
-        GPIO_toggle(Board_LED0);
+        GPIO_write(Board_LED0, Board_LED_ON);
+//        GPIO_toggle(Board_LED0);
 
         const unsigned char buffer[STR_BUFFER_SIZE];
+//        int len = snprintf((char *) buffer, STR_BUFFER_SIZE, "(%.5f %.5f %.5f %.5f %.5f %.5f)\r\n\0",
+//                                                               filt_imu_state.x, filt_imu_state.y, filt_imu_state.z,
+//                                                               filt_imu_state.roll, filt_imu_state.pitch, filt_imu_state.yaw);
         int len = snprintf((char *) buffer, STR_BUFFER_SIZE, "(%.5f %.5f %.5f %.5f %.5f %.5f)\r\n\0",
-                                                               filt_imu_state.x, filt_imu_state.y, filt_imu_state.z,
-                                                               filt_imu_state.roll, filt_imu_state.pitch, filt_imu_state.yaw);
+                                                               imu_state.x, imu_state.y, imu_state.z,
+                                                               imu_state.roll, imu_state.pitch, imu_state.yaw);
         if (len >= STR_BUFFER_SIZE) {
             Log_error1("sprintf wrote %d bytes!", (IArg) len);
         }
